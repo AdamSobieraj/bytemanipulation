@@ -1,15 +1,23 @@
 package com.example.kodillabytemanipulation.controller;
 
 import com.example.kodillabytemanipulation.Student;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import com.example.kodillabytemanipulation.range.Range;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.*;
 
+import javax.validation.ConstraintViolationException;
+import javax.validation.Valid;
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+@Validated
 @RestController
 @RequestMapping("/api/students")
 public class StudentController {
@@ -18,8 +26,8 @@ public class StudentController {
 
     @GetMapping("/generate")
     public Map<Integer, String> generateStudents(
-            @RequestParam(defaultValue = "20") int n,
-            @RequestParam(defaultValue = "10") int z) {
+          @Valid @RequestParam(defaultValue = "20")  @Range(min = 1, max = 5) int n,
+          @Valid @RequestParam(defaultValue = "10")  @Range(min = 1, max = 5) int z) {
 
         Map<Integer, String> result = new HashMap<>();
 
@@ -40,5 +48,27 @@ public class StudentController {
         } catch (Exception e) {
             throw new RuntimeException("Error getting object ID", e);
         }
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    ResponseEntity<Map<String, String>> handleMethodArgumentNotValidExceptions(MethodArgumentNotValidException exc) {
+        Map<String, String> errorsMap = new HashMap<>();
+        List<ObjectError> errorsList = exc.getBindingResult().getAllErrors();
+        errorsList.forEach((errorObject) -> {
+            FieldError fieldError = (FieldError) errorObject;
+            String name = fieldError.getField();
+            String message = errorObject.getDefaultMessage();
+            errorsMap.put(name, message);
+        });
+        return new ResponseEntity<>(errorsMap, HttpStatus.BAD_REQUEST);
+    }
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    ResponseEntity<Map<String, String>> handleException(ConstraintViolationException exc) {
+        Map<String, String> resultMap = new HashMap<>();
+        String[] errorArray = exc.getMessage().split(":");
+        resultMap.put(errorArray[0], errorArray[1]);
+        return new ResponseEntity<>(resultMap, HttpStatus.BAD_REQUEST);
     }
 }
